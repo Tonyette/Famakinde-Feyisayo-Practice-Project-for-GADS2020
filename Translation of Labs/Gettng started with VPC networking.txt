@@ -1,0 +1,92 @@
+Objectives 
+
+1. Explore the default VPC network
+
+2. Create an auto mode network with firewall rules
+
+3. Create VM instances using Compute 
+
+4. Explore the connectivity for VM instances
+
+#Explore the default VPC network
+     gcloud compute networks list
+    
+-Explore the firewall rules
+     gcloud compute firewall-rules list
+
+-delete the firewall rules
+     gcloud compute firewall-rules delete default-allow-internal default-allow-ssh default-allow-icmp default-allow-rdp
+-delete VPC network
+    gcloud compute networks delete default
+Result
+There are no network, firewall rules or routes when you query gcloud compute networks list and gcloud firewall-rules list
+
+-Try to create a vm instance
+    gcloud compute instances create instance-1 --machine-type=n1-standard-1 --zone=us-central1-a --image-project=debain-cloud --image-project=debian-cloud --image=debian-9-stretch-v20190213 --subnet=default
+Result
+Error occurs because there are no available networks
+
+2. Create an auto mode network with firewall rules
+
+-Create a VPC 
+    gcloud compute networks create mynetwork --subnet-mode=auto --bgp-routing-mode=regional
+
+-Create firewall rules
+    gcloud compute firewall-rules create allow-ssh --network=mynetwork --allow tcp:22
+    gcloud compute firewall-rules create allow-internal --network=mynetwork --allow=tcp:0-65535,udp:0-65535
+    gcloud compute firewall-rules create allow-rdp --network=mynetwork --allow=tcp:3389,udp:3389
+    gcloud compute firewall-rules create allow-icmp --network=mynetwork --allow=icmp
+-Create VM instances
+    gcloud compute instances create mynet-us-vm --zone=us-central1-c --image-project=debian-cloud --image=debian-9-stretch-v20190213 --machine-type=f1-micro --subnet=mynetwork
+    gcloud compute instances create mynet-eu-vm --zone=europe-west1-b --image-project=debian-cloud --image=debian-9-stretch-v20190213 --machine-type=f1-micro --subnet=mynetwork
+#copy the internal and External IP addresses of both VMs 
+4. Explore connectivity for instances
+ -connect to mynet-us-vm
+   gcloud compute ssh mynet-us-vm
+   
+ -Test the connectivity between the internal networks of both vms
+  #With Internal IP address
+   ping -c 3 <Enter mynet-eu-vm's internal IP here>
+   Result
+   It should work with 0% packet loss because both vms are on the same network and mynet-eu-vm has internal firewall rule enabled
+  #With Vm instance name
+   ping -c 3 mynet-eu-vm
+   Result
+   It has no packet loss because instances on the ssme network have an internal DNS that enables you ping with vm names
+
+ -Close the ssh connection of mynet-us-vm
+   exit 
+
+ -Remove the allow-icmp firewall rule
+   gcloud compute firewall-rules delete allow-icmp
+
+ -Test the connectivity of both vms{Return to the ssh session of mynet-us-vm}
+   ping -c 3 mynet-eu-vm
+   Result
+   It works because the allow-internal firewall rule is enabled
+   
+   ping -c 3<my-net-eu-vm external IP>
+   Result
+   There is a 100% packet loss because the allow-icmp firewall has been delete
+Exit the terminal
+    exit
+
+   -Remove the allow-internal firewall rule
+     gcloud compute firewall-rules delete mynetwork-allow-internal
+
+   -Test the connectivity of the vms
+     ping -c 3 mynet-eu-vm
+     Result
+     There is a 100 packet loss because the allow-internal firewall rule has been deleted
+
+Exit the terminal
+    exit
+
+    -Remove the allow-ssh firewall rule   
+      gcloud compute firewall-rules delete mynetwork-allow-ssh
+
+    -Test the connectivity
+SSh into the mynet-us-vm
+     gcloud compute ssh mynet-us-vm
+     Result
+     There is an error because the allow-ssh firewall rule has been deleted
